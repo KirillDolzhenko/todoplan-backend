@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    String  @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email String @unique
+  password String
+  username  String
+
+  projects Project[]
+  tasks Task[]
+
+  friends Friends[] @relation("User1Relation")
+  friendsDub Friends[] @relation("User2Relation")
+
+}
+
+model Friends {
+  id    String  @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId1 String @db.ObjectId()
+  userId2 String @db.ObjectId()
+
+  user1 User @relation("User1Relation", fields: [userId1], references: [id])
+  user2 User @relation("User2Relation", fields: [userId2], references: [id])
+
+  @@unique([userId1, userId2])
+}
+
+// To Do Block 
+
+enum StatusItem {
+  TODO
+  DOING
+  DONE
+}
+
+model Project {
+  id    String  @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title String
+  descr String?
+  status StatusItem @default(TODO)
+
+  deadline DateTime?
+
+  userId String @db.ObjectId
+  user User @relation(fields: [userId], references: [id])
+
+  tasks Task[]
+}
+
+// Tasks
+
+model Task {
+  id    String  @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title String
+  descr String?
+  status StatusItem @default(TODO)
+
+  deadline DateTime?
+
+  userId String @db.ObjectId
+  user User @relation(fields: [userId], references: [id])
+
+  project Project @relation(fields: [projectId], references: [id])
+  projectId String @db.ObjectId() 
+}

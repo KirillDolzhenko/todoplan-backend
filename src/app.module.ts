@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './user/user.module';
 import config from './config/config';
 import { DatabaseModule } from './db/db.module';
+import { JwtModule } from './jwt/jwt.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { DatabaseModule } from './db/db.module';
     }),
     UserModule,
     DatabaseModule,
+    JwtModule,
   ],
   controllers: [AppController],
   providers: [AppService],

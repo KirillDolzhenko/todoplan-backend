@@ -1,18 +1,54 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { DatabaseService } from 'src/db/db.service';
-import { UserDto } from './dto/user.dto';
+import { LogInDto, SignUpDto } from './dto/user.dto';
 import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
+  ) {}
 
-  // async passwordHash(password: string) {
-  //     let salt = 9;
+  async jwtTokenGenAll(id) {
+    return {
+      access_token: await this.jwtTokenGenAccess(id),
+      refresh_token: await this.jwtTokenGenRefresh(id),
+    };
+  }
 
-  // }
+  async jwtTokenGenAccess(id: string) {
+    return await this.jwt.sign(
+      {
+        sub: id,
+      },
+      {
+        secret: this.config.get('jwt.secret.access'),
+        expiresIn: '10min',
+      },
+    );
+  }
 
-  async registerUser(dto: UserDto) {
+  async jwtTokenGenRefresh(id: string) {
+    return await this.jwt.sign(
+      {
+        sub: id,
+      },
+      {
+        secret: this.config.get('jwt.secret.refresh'),
+        expiresIn: '30d',
+      },
+    );
+  }
+
+  async registerUser(dto: SignUpDto) {
     try {
       let passwordHash = await bcrypt.hash(dto.password, 9);
 
@@ -41,14 +77,26 @@ export class UserService {
         },
       });
 
-      return user;
+      return {
+        data: {
+          ...user,
+          jwt_access: await this.jwt.sign(
+            {
+              id: user.id,
+            },
+            {
+              secret: this.config.get('jwt.secret'),
+            },
+          ),
+        },
+      };
     } catch (error) {
       console.log(error);
       return 'Something wrong';
     }
   }
 
-  async loginUser(dto: UserDto) {
+  async loginUser(dto: LogInDto) {
     try {
       let user = await this.db.user.findUnique({
         where: {
@@ -56,16 +104,51 @@ export class UserService {
         },
       });
 
+      if (!user) {
+        throw new NotFoundException();
+      }
+
       if (!(await bcrypt.compare(dto.password, user.password))) {
-        throw 'error';
+        throw new UnauthorizedException();
       }
 
       delete user.password;
 
-      return user;
+      const jwtTokens = await this.jwtTokenGenAll(user.id);
+
+      return {
+        ...user,
+        ...jwtTokens,
+      };
     } catch (error) {
       console.log(error);
-      return 'Something wrong';
+
+      return error;
+    }
+  }
+
+  async refreshToken(id: string) {
+    try {
+      const user = await this.db.user.findUnique({
+        where: {
+          id,
+        },
+      });
+
+      if (!user) {
+        return new NotFoundException();
+      }
+
+      delete user.password;
+
+      return {
+        ...user,
+        ...(await this.jwtTokenGenAll(id)),
+      };
+    } catch (error) {
+      console.log(error);
+
+      return error;
     }
   }
 }

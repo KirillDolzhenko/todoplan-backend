@@ -92,7 +92,7 @@ export class UserService {
       };
     } catch (error) {
       console.log(error);
-      return 'Something wrong';
+      throw 'Something wrong';
     }
   }
 
@@ -104,11 +104,7 @@ export class UserService {
         },
       });
 
-      if (!user) {
-        throw new NotFoundException();
-      }
-
-      if (!(await bcrypt.compare(dto.password, user.password))) {
+      if (!user || !(await bcrypt.compare(dto.password, user.password))) {
         throw new UnauthorizedException();
       }
 
@@ -123,7 +119,7 @@ export class UserService {
     } catch (error) {
       console.log(error);
 
-      return error;
+      throw error;
     }
   }
 
@@ -148,7 +144,7 @@ export class UserService {
     } catch (error) {
       console.log(error);
 
-      return error;
+      throw error;
     }
   }
 }

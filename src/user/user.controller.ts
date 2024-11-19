@@ -1,8 +1,16 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { LogInDto, SignUpDto } from './dto/user.dto';
 import { AccessTokenGuard, RefreshTokenGuard } from 'src/jwt/guard/jwt.guard';
 import { JWTGetId } from 'src/jwt/decorator/jwt.decorator';
+import { TimeoutInterceptor } from './interceptors/timeout';
 
 @Controller('user')
 export class UserController {
@@ -15,6 +23,7 @@ export class UserController {
   }
 
   @Post('login')
+  @UseInterceptors(TimeoutInterceptor)
   async loginUser(@Body() dto: LogInDto) {
     console.log(dto);
     return await this.userService.loginUser(dto);

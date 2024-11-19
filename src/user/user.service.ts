@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -8,6 +9,7 @@ import { LogInDto, SignUpDto } from './dto/user.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { resolve } from 'path';
 
 @Injectable()
 export class UserService {
@@ -54,19 +56,12 @@ export class UserService {
 
       let userAlready = await this.db.user.findFirst({
         where: {
-          OR: [
-            {
-              email: dto.email,
-            },
-            {
-              password: passwordHash,
-            },
-          ],
+          email: dto.email,
         },
       });
 
       if (userAlready) {
-        throw 'User exist';
+        throw new ConflictException('Email is already used');
       }
 
       let user = await this.db.user.create({
@@ -77,22 +72,15 @@ export class UserService {
         },
       });
 
+      let jwtTokens = await this.jwtTokenGenAll(user.id);
+
       return {
-        data: {
-          ...user,
-          jwt_access: await this.jwt.sign(
-            {
-              id: user.id,
-            },
-            {
-              secret: this.config.get('jwt.secret'),
-            },
-          ),
-        },
+        ...user,
+        ...jwtTokens,
       };
     } catch (error) {
       console.log(error);
-      throw 'Something wrong';
+      throw error;
     }
   }
 
@@ -105,12 +93,12 @@ export class UserService {
       });
 
       if (!user || !(await bcrypt.compare(dto.password, user.password))) {
-        throw new UnauthorizedException();
+        throw new UnauthorizedException('Invalid data');
       }
 
       delete user.password;
 
-      const jwtTokens = await this.jwtTokenGenAll(user.id);
+      let jwtTokens = await this.jwtTokenGenAll(user.id);
 
       return {
         ...user,
